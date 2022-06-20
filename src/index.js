@@ -27,13 +27,14 @@ const INITIAL_BIRD_POSITION = {
 };
 const BIRD_GRAVITY = 300;
 const FLAP_VELOCITY = 250;
+const PIPES_VELOCITY_X = -200;
 const PIPE_VERTICAL_DISTANCE_RANGE = [150, 250];
 const PIPE_HORIZONTAL_DISTANCE_RANGE = [380, 430];
 
 const PIPES_TO_RENDER = 4;
 
 let bird = null;
-let pipeHorizontalDistance = 0;
+let pipes = null;
 
 function preload() {
   this.load.image('sky', 'assets/sky.png');
@@ -48,35 +49,62 @@ function create() {
   bird.body.gravity.y = BIRD_GRAVITY;
 
   this.input.on('pointerdown', flap);
-  this.input.keyboard.on('keydown_SPACE', flap);  
+  this.input.keyboard.on('keydown_SPACE', flap);
+
+  pipes = this.physics.add.group();
 
   for (let i = 0; i < PIPES_TO_RENDER; i++) {
-    const upperPipe = this.physics.add.sprite(0, 0, 'pipe').setOrigin(0, 1);
-    const lowerPipe = this.physics.add.sprite(0, 0, 'pipe').setOrigin(0);
+    const upperPipe = pipes.create(0, 0, 'pipe').setOrigin(0, 1);
+    const lowerPipe = pipes.create(0, 0, 'pipe').setOrigin(0);
     
     placePipe(upperPipe, lowerPipe);
   }
+
+  pipes.setVelocityX(PIPES_VELOCITY_X);
 }
 
 function update(time, delta) {
   if (bird.body.position.y >= (config.height - bird.body.height) || bird.body.position.y <= 0) {
     restartBirdPosition();
   }
+
+  recyclePipes();
 }
 
 function placePipe(upperPipe, lowerPipe) {
-  pipeHorizontalDistance += Phaser.Math.Between(...PIPE_HORIZONTAL_DISTANCE_RANGE);
+  const rightMostX = getRightMostPipe();
+  const pipeHorizontalDistance = Phaser.Math.Between(...PIPE_HORIZONTAL_DISTANCE_RANGE);
   const pipeVerticalDistance = Phaser.Math.Between(...PIPE_VERTICAL_DISTANCE_RANGE);
   const pipeVerticalPosition = Phaser.Math.Between(0 + 20, config.height - 20 - pipeVerticalDistance);
 
-  upperPipe.x = pipeHorizontalDistance;
+  upperPipe.x = rightMostX + pipeHorizontalDistance;
   upperPipe.y = pipeVerticalPosition;
 
   lowerPipe.x = upperPipe.x;
   lowerPipe.y = upperPipe.y + pipeVerticalDistance;
+}
 
-  upperPipe.body.velocity.x = -200;
-  lowerPipe.body.velocity.x = -200;
+function recyclePipes() {
+  const tempPipes = [];
+
+  pipes.getChildren().forEach(pipe => {
+    if (pipe.getBounds().right <= 0) {
+      tempPipes.push(pipe);
+
+      if (tempPipes.length === 2) {
+        placePipe(...tempPipes);
+      }
+    }
+  });
+}
+
+function getRightMostPipe() {
+  let rightMostX = 0;
+  pipes.getChildren().forEach(pipe => {
+    rightMostX = Math.max(pipe.x, rightMostX);
+  });
+
+  return rightMostX;
 }
 
 function flap() {
